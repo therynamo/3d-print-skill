@@ -3,14 +3,15 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 4 code-complete → Phase 5 next
-**Status:** CHECKPOINT 4 code-complete (live print pending user credentials/hardware)
+**Current phase:** Phase 5 complete → Phase 6 next
+**Status:** CHECKPOINT 5 passed (CHECKPOINT 4 live print still pending hardware)
 
 ## Next action
-Begin Phase 5 — Text-to-3D. Build `describe.py`: natural-language -> OpenSCAD source ->
-compile to STL -> render PNG preview (reuse common.render_stl_png) -> hand off to
-prepare/slice. Verify CHECKPOINT 5: "a 30mm cube with a 10mm hole" -> preview PNG the
-user can eyeball before printing.
+Begin Phase 6 — Outcome review loop. Build `review.py`: take user-supplied outcome
+photos for a print id, let the agent assess quality, record rating/notes/images
+(jobs.py outcome), and when a failure pattern is identified, insert a `lessons` row
+(printer+material+trigger+learned_adjustment) so slice.py applies it next time.
+Verify CHECKPOINT 6: log an outcome -> a lesson is created and picked up on re-slice.
 
 ## ACTION REQUIRED (you, the user) to finish CHECKPOINT 4
 The OctoPrint bridge is built + unit-tested offline, but a real print needs your
@@ -19,6 +20,12 @@ credentials + the powered-on Tina 2S:
   2. `python scripts/octoprint.py upload <gcode> --print-id N`   (stages, no print)
   3. After eyeballing, confirm, then: `python scripts/octoprint.py start <remote> --yes`
   4. `python scripts/octoprint.py status` to watch progress.
+
+## Phase 5 notes
+- `describe.py`: compile/preview harness for text->3D. The **agent** authors the
+  OpenSCAD (parametric, mm); describe.py compiles -> STL, renders PNG via
+  common.render_stl_png, reports dims. Accepts --code / --scad / stdin.
+- Verified: "30mm cube with a 10mm hole" -> correct STL + preview PNG (hole visible).
 
 ## Phase 4 notes
 - `octoprint.py`: upload / start / status. **upload never prints** (POST
