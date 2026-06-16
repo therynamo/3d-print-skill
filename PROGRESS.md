@@ -3,12 +3,20 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 7 complete → Phase 8 next
-**Status:** CHECKPOINT 7 passed (CHECKPOINT 4 live print still pending hardware)
+**Current phase:** ALL PHASES COMPLETE
+**Status:** CHECKPOINT 8 passed — eval 14/14 (CHECKPOINT 4 live print pending hardware)
 
 ## Next action
-Begin Phase 8 — Run the skills evaluation, generate HTML + JSON results, fix any
-regressions, then SendUserFile the HTML + data to the user for mobile viewing.
+Only remaining item: the live end-to-end print on the physical Tina 2S (set
+$OCTOPRINT_API_KEY, upload, confirm, start) — see "ACTION REQUIRED" below.
+
+## Phase 8 notes
+- `eval/evaluate.py`: functional suite (drives the real scripts) + quality suite
+  (skill-creator rubric) -> `eval/report.html` (mobile-friendly) + `eval/results.json`.
+- Result: 14/14. The run caught a real bug — when two lessons touched the same key the
+  OLDER one won (lessons were applied newest-first); fixed slice.fetch_lessons to ORDER
+  BY ts ASC so the most recent learning wins. Re-ran: green.
+- Cleaned eval/test rows from the runtime DB afterward (printer registry kept).
 
 ## ACTION REQUIRED (you, the user) to finish CHECKPOINT 4
 The OctoPrint bridge is built + unit-tested offline, but a real print needs your
