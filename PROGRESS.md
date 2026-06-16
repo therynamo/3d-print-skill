@@ -3,17 +3,25 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 0 complete → awaiting go-ahead for Phase 1
-**Status:** CHECKPOINT 0 passed (symlink resolves, initial commit 0372ffd)
+**Current phase:** Phase 1 complete → Phase 2 next
+**Status:** CHECKPOINT 1 passed
 
 ## Next action
-Begin Phase 1 — Environment + printer registry. Verify OrcaSlicer/OpenSCAD/
-stl-thumb on PATH (install if missing), build `common.py` + `printers.py`, create
-`~/.3dprint/history.db`, seed Tina 2S. Confirm real usable Z (100 vs 110 mm) and
-the OrcaSlicer CLI binary path with the user before relying on them.
+Begin Phase 2 — Ingest + prepare. Build `ingest.py` (STL/3MF/.scad passthrough +
+Printables/direct URL download + unzip) and `prepare.py` (trimesh bbox vs active
+printer bed, auto scale-to-fit, Tweaker-3 auto-orient, OpenSCAD thumbnail). Vendor
+Tweaker-3 into `vendor/`. Verify CHECKPOINT 2 with a known STL + a Printables URL.
+
+## Verified tool paths (this Mac)
+- OrcaSlicer CLI: `/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer` (v2.3.2)
+- OpenSCAD: `/Applications/OpenSCAD-2021.01.app/Contents/MacOS/OpenSCAD`
+- venv: `~/dev/3d-print-skill/.venv` (trimesh, lxml, numpy, requests). Python 3.14.
+- Runtime data: `~/.3dprint/` (history.db, work/, downloads/)
+- **stl-thumb DROPPED** (not in Homebrew) → OpenSCAD renders all PNGs.
 
 ## Checkpoint log
 - [x] CHECKPOINT 0 — scaffolding + symlink + initial commit (2026-06-16)
+- [x] CHECKPOINT 1 — printer registry + DB + setup doctor (2026-06-16)
 - [ ] CHECKPOINT 1 — printer registry + DB
 - [ ] CHECKPOINT 2 — ingest + prepare
 - [ ] CHECKPOINT 3 — slice + adjustment engine

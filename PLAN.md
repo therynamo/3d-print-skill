@@ -65,7 +65,7 @@ printer lists PLA/PLA+/TPU; PETG is user-driven and out-of-spec.
 | OrcaSlicer (CLI) | slice → G-code | brew cask / appimage; CLI binary inside app bundle |
 | OpenSCAD | text→model, PNG preview, STL export | `brew install --cask openscad` |
 | Tweaker-3 | auto-orient STL | `pip` / vendored `MeshTweaker.py` (ChristophSchranz/Tweaker-3) |
-| stl-thumb | headless STL/3MF → PNG thumbnail | `brew install stl-thumb` (fallback: OpenSCAD render) |
+| ~~stl-thumb~~ | DROPPED (not in Homebrew). Use **OpenSCAD** for all PNG rendering: trimesh converts 3MF→STL, then OpenSCAD imports+renders | — |
 | trimesh (+lxml) | bbox check, scale-to-fit, reads STL **and** 3MF | `pip install trimesh lxml numpy` |
 | requests | Printables/direct download, OctoPrint REST | `pip install requests` |
 
