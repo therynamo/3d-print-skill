@@ -3,15 +3,15 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 5 complete → Phase 6 next
-**Status:** CHECKPOINT 5 passed (CHECKPOINT 4 live print still pending hardware)
+**Current phase:** Phase 6 complete → Phase 7 next
+**Status:** CHECKPOINT 6 passed (CHECKPOINT 4 live print still pending hardware)
 
 ## Next action
-Begin Phase 6 — Outcome review loop. Build `review.py`: take user-supplied outcome
-photos for a print id, let the agent assess quality, record rating/notes/images
-(jobs.py outcome), and when a failure pattern is identified, insert a `lessons` row
-(printer+material+trigger+learned_adjustment) so slice.py applies it next time.
-Verify CHECKPOINT 6: log an outcome -> a lesson is created and picked up on re-slice.
+Begin Phase 7 — Polish + docs + open-source packaging. Author `SKILL.md` (the agent
+entry point: when to use, the full pipeline, per-script usage, the confirm-gate
+safety rule, progressive disclosure to references/), `README.md`, `LICENSE` (MIT),
+and confirm the skill symlink resolves. Verify CHECKPOINT 7: SKILL.md drives the
+whole pipeline end-to-end from a cold read.
 
 ## ACTION REQUIRED (you, the user) to finish CHECKPOINT 4
 The OctoPrint bridge is built + unit-tested offline, but a real print needs your
@@ -20,6 +20,13 @@ credentials + the powered-on Tina 2S:
   2. `python scripts/octoprint.py upload <gcode> --print-id N`   (stages, no print)
   3. After eyeballing, confirm, then: `python scripts/octoprint.py start <remote> --yes`
   4. `python scripts/octoprint.py status` to watch progress.
+
+## Phase 6 notes
+- `review.py`: record (rating/notes/images + auto status done>=3/failed<3), learn
+  (insert a lessons row scoped to printer+material, adjustment as key=value), lessons
+  (list). The agent reads the recorded image paths to assess quality.
+- Verified the full feedback loop: record outcome on #1 -> learn brim_width=6 for
+  tina2s/PLA -> next slice.py auto-applied it ("Lesson: applied brim_width=6").
 
 ## Phase 5 notes
 - `describe.py`: compile/preview harness for text->3D. The **agent** authors the
