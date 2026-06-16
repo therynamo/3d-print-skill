@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 import urllib.request
 
@@ -34,9 +35,26 @@ def check_tools() -> list[bool]:
     res.append(line(OK if orca else BAD, "OrcaSlicer CLI",
                     orca or "missing -> brew install --cask orcaslicer"))
     scad = common.openscad_bin()
-    res.append(line(OK if scad else BAD, "OpenSCAD",
-                    scad or "missing -> brew install --cask openscad"))
+    res.append(line(OK if scad else BAD, "OpenSCAD (native)",
+                    scad or "missing -> brew install --cask openscad@snapshot "
+                            "(the 2021.01 cask is Intel-only, fails on Apple Silicon)"))
+    tw = common.tweaker_script()
+    res.append(line(OK if tw else WARN, "Tweaker-3 (auto-orient)",
+                    tw or "not fetched -> run setup.py --fetch-tweaker (GPL, external)"))
     return res
+
+
+def fetch_tweaker() -> None:
+    common.ensure_dirs()
+    if common.tweaker_script():
+        print(f"Tweaker-3 already present at {common.TWEAKER_DIR}")
+        return
+    print(f"Fetching Tweaker-3 (GPL-3.0) into {common.TWEAKER_DIR} ...")
+    subprocess.run(
+        ["git", "clone", "--depth", "1", common.TWEAKER_REPO, str(common.TWEAKER_DIR)],
+        check=True,
+    )
+    print("Done.")
 
 
 def check_python() -> list[bool]:
@@ -108,9 +126,14 @@ def next_steps() -> None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="3d-print skill setup/doctor")
     ap.add_argument("--seed", action="store_true", help="seed the Tina 2S printer")
+    ap.add_argument("--fetch-tweaker", action="store_true",
+                    help="git-clone Tweaker-3 (GPL) for auto-orient")
     args = ap.parse_args(argv)
 
     common.ensure_dirs()
+    if args.fetch_tweaker:
+        fetch_tweaker()
+        print()
     if args.seed:
         import printers
         printers.cmd_seed(args)

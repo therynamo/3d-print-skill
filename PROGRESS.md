@@ -3,14 +3,27 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 1 complete → Phase 2 next
-**Status:** CHECKPOINT 1 passed
+**Current phase:** Phase 2 complete → Phase 3 next
+**Status:** CHECKPOINT 2 passed
 
 ## Next action
-Begin Phase 2 — Ingest + prepare. Build `ingest.py` (STL/3MF/.scad passthrough +
-Printables/direct URL download + unzip) and `prepare.py` (trimesh bbox vs active
-printer bed, auto scale-to-fit, Tweaker-3 auto-orient, OpenSCAD thumbnail). Vendor
-Tweaker-3 into `vendor/`. Verify CHECKPOINT 2 with a known STL + a Printables URL.
+Begin Phase 3 — Slice + adjustment engine. Create OrcaSlicer Tina 2S PLA/PETG
+profiles (port from Wiibuilder/Cura TINA2S def), build `slice.py` (invoke
+OrcaSlicer CLI, parse time/grams/layers, apply codified adjustment rules + consult
+`lessons`), and finalize `references/adjustment-rules.md`. Verify CHECKPOINT 3:
+slice a model -> valid gcode + summary; a >50deg overhang auto-enables supports
+with an explanation.
+
+## Phase 2 notes
+- ingest.py: local path + direct http(s) file URL + zip extraction all work.
+  Printables model pages need auth/API -> handled gracefully (asks for direct
+  file/zip URL). Full Printables scraping = follow-up.
+- prepare.py: trimesh bbox, Tweaker-3 auto-orient (-min sur), uniform scale-to-fit
+  (1mm margin/side), OpenSCAD PNG thumbnail. Verified: demo STL fits; synthetic
+  200x150x180 box scaled x0.49 to fit; thumbnails render correctly.
+- **OpenSCAD gotcha:** the `openscad` cask is 2021.01 Intel-only -> "Bad CPU type"
+  on M3. Use `openscad@snapshot` (universal). Now installed at /Applications/OpenSCAD.app.
+- Tweaker-3 (GPL) fetched to ~/.3dprint/vendor (not committed); invoked via subprocess.
 
 ## Verified tool paths (this Mac)
 - OrcaSlicer CLI: `/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer` (v2.3.2)
@@ -22,6 +35,7 @@ Tweaker-3 into `vendor/`. Verify CHECKPOINT 2 with a known STL + a Printables UR
 ## Checkpoint log
 - [x] CHECKPOINT 0 — scaffolding + symlink + initial commit (2026-06-16)
 - [x] CHECKPOINT 1 — printer registry + DB + setup doctor (2026-06-16)
+- [x] CHECKPOINT 2 — ingest + prepare (orient/scale/thumbnail) (2026-06-16)
 - [ ] CHECKPOINT 1 — printer registry + DB
 - [ ] CHECKPOINT 2 — ingest + prepare
 - [ ] CHECKPOINT 3 — slice + adjustment engine

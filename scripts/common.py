@@ -9,12 +9,19 @@ import glob
 import os
 import sqlite3
 import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 DATA_DIR = Path(os.environ.get("PRINT3D_HOME", Path.home() / ".3dprint"))
 DB_PATH = DATA_DIR / "history.db"
 WORK_DIR = DATA_DIR / "work"
 DOWNLOAD_DIR = DATA_DIR / "downloads"
+VENDOR_DIR = DATA_DIR / "vendor"
+# Tweaker-3 is GPL-3.0; fetched here at setup time, NOT bundled in this MIT repo.
+# We only invoke it as a separate program (subprocess) -> license-clean.
+TWEAKER_DIR = VENDOR_DIR / "Tweaker-3"
+TWEAKER_REPO = "https://github.com/ChristophSchranz/Tweaker-3.git"
 
 # --- candidate tool locations (resolved lazily; verified by setup.py) ---
 ORCA_CANDIDATES = [
@@ -30,8 +37,13 @@ OPENSCAD_CANDIDATES = [
 
 
 def ensure_dirs() -> None:
-    for d in (DATA_DIR, WORK_DIR, DOWNLOAD_DIR):
+    for d in (DATA_DIR, WORK_DIR, DOWNLOAD_DIR, VENDOR_DIR):
         d.mkdir(parents=True, exist_ok=True)
+
+
+def tweaker_script() -> str | None:
+    p = TWEAKER_DIR / "Tweaker.py"
+    return str(p) if p.exists() else None
 
 
 def find_tool(candidates: list[str]) -> str | None:
@@ -47,6 +59,26 @@ def orca_bin() -> str | None:
 
 def openscad_bin() -> str | None:
     return find_tool(OPENSCAD_CANDIDATES)
+
+
+def render_stl_png(stl_path: str, png_path: str, size: int = 700) -> str:
+    """Headless STL -> PNG via OpenSCAD (imports the mesh and auto-frames it)."""
+    scad = openscad_bin()
+    if not scad:
+        raise RuntimeError("OpenSCAD not found; cannot render preview.")
+    abs = str(Path(stl_path).resolve()).replace("\\", "/")
+    with tempfile.NamedTemporaryFile("w", suffix=".scad", delete=False) as f:
+        f.write(f'import("{abs}");\n')
+        scad_file = f.name
+    try:
+        subprocess.run(
+            [scad, "-o", png_path, f"--imgsize={size},{size}",
+             "--autocenter", "--viewall", "--colorscheme=Tomorrow", scad_file],
+            check=True, capture_output=True, text=True,
+        )
+    finally:
+        os.unlink(scad_file)
+    return png_path
 
 
 # ----------------------------------------------------------------------------
