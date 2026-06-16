@@ -221,8 +221,20 @@ The agent should make first-run nearly hands-off:
 
 ### Phase 7 — Polish, docs, open-source packaging
 - [ ] `SKILL.md` finalized (tight description for good trigger accuracy)
-- [ ] `README.md`, `LICENSE`, install script, sample profiles, screenshots
+- [ ] `README.md`, `LICENSE` (MIT), install script, sample profiles, screenshots
 - [ ] Test prompts (with/without skill) per skill-creator guidance
+
+### Phase 8 — Skills evaluation + deliver report to user
+- [ ] Use the skill-creator's eval tooling (`scripts/` + `eval-viewer/`): author
+      2–3 realistic test prompts (e.g. "print this STL", "make me a 40 mm cube with
+      a hole and print it", "slice this Printables URL for PETG") plus trigger-eval
+      queries for the description.
+- [ ] Run the evaluation, generate the **JSON data** + render the **HTML viewer**.
+- [ ] Review results; make adjustments to SKILL.md/scripts; re-run until passing.
+- [ ] **Send the user the HTML + data files** (via SendUserFile) so they can view
+      results on mobile.
+- **CHECKPOINT 8:** eval run completes, HTML+JSON produced and delivered to the user,
+  and any regressions surfaced by the eval are fixed (or logged as follow-ups).
 - **CHECKPOINT 7:** fresh-machine install steps work from README; SKILL.md triggers
   on realistic prompts.
 
