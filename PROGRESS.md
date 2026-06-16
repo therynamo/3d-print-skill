@@ -3,15 +3,33 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 3 complete → Phase 4 next
-**Status:** CHECKPOINT 3 passed
+**Current phase:** Phase 4 code-complete → Phase 5 next
+**Status:** CHECKPOINT 4 code-complete (live print pending user credentials/hardware)
 
 ## Next action
-Begin Phase 4 — OctoPrint upload + confirm gate + job logging. Build `octoprint.py`
-(upload sliced gcode to `/api/files/local` via X-Api-Key; NEVER auto-start a print —
-require an explicit confirm before issuing the print command) and `jobs.py` (CRUD over
-the `prints` table: list/show/update status). Verify CHECKPOINT 4: end-to-end on the
-real Tina 2S — upload a calibration gcode, confirm, print, and log the job.
+Begin Phase 5 — Text-to-3D. Build `describe.py`: natural-language -> OpenSCAD source ->
+compile to STL -> render PNG preview (reuse common.render_stl_png) -> hand off to
+prepare/slice. Verify CHECKPOINT 5: "a 30mm cube with a 10mm hole" -> preview PNG the
+user can eyeball before printing.
+
+## ACTION REQUIRED (you, the user) to finish CHECKPOINT 4
+The OctoPrint bridge is built + unit-tested offline, but a real print needs your
+credentials + the powered-on Tina 2S:
+  1. Set `export OCTOPRINT_URL=...` and `export OCTOPRINT_API_KEY=...` (see setup.py).
+  2. `python scripts/octoprint.py upload <gcode> --print-id N`   (stages, no print)
+  3. After eyeballing, confirm, then: `python scripts/octoprint.py start <remote> --yes`
+  4. `python scripts/octoprint.py status` to watch progress.
+
+## Phase 4 notes
+- `octoprint.py`: upload / start / status. **upload never prints** (POST
+  /api/files/local with select=true, print=false). **start** issues
+  {"command":"select","print":true} and HARD-REQUIRES `--yes` -> refuses otherwise
+  (gate verified offline before any network call). Both update prints.status +
+  octoprint_job. Uses `requests` (already a dep).
+- `jobs.py`: CRUD over prints — list/show/set-status/outcome (rating 1-5 + notes +
+  images csv). Verified offline against row #1.
+- Live end-to-end print is the only unverified piece; needs $OCTOPRINT_API_KEY + the
+  physical printer. Steps written under "ACTION REQUIRED" above.
 
 ## Phase 3 notes
 - **Slicer = PrusaSlicer** (2.9.5, universal at /Applications/PrusaSlicer.app/...).
