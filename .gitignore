@@ -1,0 +1,23 @@
+# Local runtime data (never commit DB, downloads, or secrets)
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Working / output artifacts
+*.gcode
+*.stl
+*.3mf
+preview.png
+thumbnail.png
+work/
+out/
+
+# Local secrets / env
+.env
+*.local
+
+# OS
+.DS_Store
+
+# NOTE: the live history DB lives at ~/.3dprint/history.db (outside the repo).
