@@ -1,6 +1,6 @@
 {
-  "generated": "2026-06-16 08:19",
-  "commit": "de6f800",
+  "generated": "2026-06-16 08:35",
+  "commit": "43775b3",
   "functional": [
     {
       "name": "Setup doctor runs",
@@ -10,7 +10,7 @@
     {
       "name": "Slice produces time/grams/layers",
       "pass": true,
-      "detail": "time=3h 4m 48s grams=23.92 layers=473"
+      "detail": "time=3h 6m 34s grams=23.92 layers=473"
     },
     {
       "name": "Steep overhang auto-enables supports",

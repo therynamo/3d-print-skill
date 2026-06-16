@@ -58,6 +58,14 @@ Computed from the prepared, bed-resting STL with trimesh:
   print. Profiles therefore target **55 °C (PLA)** and **58 °C (PETG)**, comfortably
   reachable. Keep first-layer + steady bed targets at or below ~58 for this printer.
 
+### The Tina 2S must auto-level (G29) every print
+- The start G-code MUST run `G29` (auto bed leveling) after homing, or the first layer
+  rides too high and will not adhere (skirt barely deposited, filament balls up on the
+  nozzle — seen on the second test print). `M203 Z15`/`Z5` cap the Tina 2S's slow Z
+  feedrate (fast for homing/leveling, slow for printing); the nozzle is pre-warmed to
+  150 °C during leveling to avoid ooze, then brought to full temp afterward. This start
+  sequence is ported from Cura's authoritative `weefun_tina2s` machine definition.
+
 ### R4 — PETG adhesion (out-of-spec bed)
 - **Trigger:** `material == PETG` (always, on the Tina 2S).
 - **Action:** profile already forces `brim_width = 5`; the agent additionally **warns the
