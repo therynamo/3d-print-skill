@@ -89,6 +89,18 @@ def start(remote_name: str, printer_name: str | None = None,
             "printed": True}
 
 
+def cancel(printer_name: str | None = None, print_id: int | None = None) -> dict:
+    conn, p, url, key = _conn_printer(printer_name)
+    r = requests.post(f"{url}/api/job",
+                      headers={**_headers(key), "Content-Type": "application/json"},
+                      data=json.dumps({"command": "cancel"}), timeout=TIMEOUT)
+    r.raise_for_status()
+    if print_id:
+        conn.execute("UPDATE prints SET status='failed' WHERE id=?", (print_id,))
+        conn.commit()
+    return {"cancelled": True, "printer": p["name"], "octoprint": url}
+
+
 def status(printer_name: str | None = None) -> dict:
     conn, p, url, key = _conn_printer(printer_name)
     out: dict = {"printer": p["name"], "octoprint": url}
@@ -119,6 +131,10 @@ def main(argv=None) -> int:
     st.add_argument("--print-id", type=int, default=None)
     st.add_argument("--yes", action="store_true")
 
+    cn = sub.add_parser("cancel", help="cancel the active print")
+    cn.add_argument("--printer", default=None)
+    cn.add_argument("--print-id", type=int, default=None)
+
     sub.add_parser("status", help="current job/printer status").add_argument(
         "--printer", default=None)
 
@@ -128,6 +144,8 @@ def main(argv=None) -> int:
             r = upload(args.gcode, args.printer, args.print_id)
         elif args.cmd == "start":
             r = start(args.remote_name, args.printer, args.print_id, args.yes)
+        elif args.cmd == "cancel":
+            r = cancel(args.printer, args.print_id)
         else:
             r = status(args.printer)
     except Exception as e:

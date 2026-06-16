@@ -50,6 +50,14 @@ Computed from the prepared, bed-resting STL with trimesh:
 - **Action:** `brim_width = max(profile, 4)`.
 - **Why:** very small first-layer contact area peels easily; brim adds grip.
 
+### Bed target must stay below the bed's max
+- The Tina 2S bed maxes at 60 °C. `M190 S<target>` in the start G-code **blocks until
+  the bed reaches the target**. If the target equals the bed's ceiling, the bed
+  asymptotes just below it and never satisfies `M190` — the print hangs in the start
+  block forever (nozzle parked hot, 0% progress). Real failure seen on the first test
+  print. Profiles therefore target **55 °C (PLA)** and **58 °C (PETG)**, comfortably
+  reachable. Keep first-layer + steady bed targets at or below ~58 for this printer.
+
 ### R4 — PETG adhesion (out-of-spec bed)
 - **Trigger:** `material == PETG` (always, on the Tina 2S).
 - **Action:** profile already forces `brim_width = 5`; the agent additionally **warns the

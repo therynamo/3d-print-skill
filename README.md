@@ -1,156 +1,179 @@
 # 3d-print-skill
 
-**Hand a model to your AI agent and get a real print off your printer — without babysitting the slicer.**
+A [Claude skill](https://docs.anthropic.com/en/docs/claude-code/skills) that takes a model
+from input to a finished print through an AI agent. It accepts an STL, 3MF, OBJ, OpenSCAD
+file, a URL to one, or a natural-language description, then orients and scales the model,
+slices it with codified adjustment rules, previews it, uploads it to
+[OctoPrint](https://octoprint.org/), and prints it **only after explicit confirmation**.
+Print outcomes are recorded and fed back into future slicing decisions.
 
-This is a [Claude skill](https://docs.anthropic.com/en/docs/claude-code/skills) that takes
-*anything printable* — an STL, 3MF, OBJ, an OpenSCAD file, a link to one, or even a
-plain-English description of the thing you want — and walks it all the way to a finished
-print on your [OctoPrint](https://octoprint.org/)-connected machine. It orients the model,
-scales it to your bed, slices it, decides when a print actually needs supports or a brim
-(and tells you *why*), shows you a preview, and waits for your go-ahead before anything
-touches the hotend. Afterward, you send it a photo of the result and it learns from how the
-print turned out.
+Default target is the WEEFUN Tina 2S; other printers are supported via the printer registry.
 
-It was built and dialed in for a **WEEFUN Tina 2S**, but the printer registry means you can
-point it at whatever you own.
+## Features
 
----
+- Ingest from local files, direct URLs, or zip archives.
+- Automatic orientation (minimize supports) and scale-to-fit the bed.
+- Slicing via PrusaSlicer with self-contained PLA and PETG profiles.
+- Codified adjustment rules (supports, brim, adhesion) with a plain-language rationale for
+  every change — see [`references/adjustment-rules.md`](references/adjustment-rules.md).
+- Text-to-3D: describe a part, get a rendered preview before committing to plastic.
+- OctoPrint upload with a hard confirmation gate before any print starts.
+- Outcome review loop: photos in, quality assessment and lessons out; lessons are applied
+  automatically on subsequent prints.
+- Multi-printer registry (add, switch, retire).
 
-## Why this exists
+## Prerequisites
 
-Slicing is the part of 3D printing where all the fiddly judgment lives. *Does this overhang
-need support? Will this tall skinny thing tip over without a brim? Is my bed hot enough for
-PETG?* Most tools make you answer those questions by hand, every time, and they don't
-remember what went wrong last week.
+| Requirement | Notes |
+|-------------|-------|
+| macOS (Apple Silicon supported) | |
+| Python 3.12+ | |
+| PrusaSlicer | `brew install --cask prusaslicer` |
+| OpenSCAD (snapshot build) | `brew install --cask openscad@snapshot` — the 2021.01 cask is Intel-only and fails on Apple Silicon |
+| Tweaker-3 (GPL-3.0) | Fetched at setup, not bundled. Used for auto-orient. |
+| OctoPrint instance + API key | Set via environment variables (below) |
 
-This skill **codifies that judgment** ([see the rules](references/adjustment-rules.md)),
-explains every decision in plain language, and closes the loop: when a print fails, you
-teach it once and it adjusts automatically forever after. It's the difference between a
-slicer and a printing assistant that actually pays attention.
+Python dependencies are listed in `requirements.txt` (trimesh, lxml, numpy, requests).
 
-It's also deliberately **safe by default** — an agent driving a hot, moving machine should
-never start a print on its own. So it doesn't. Ever. (More on that below.)
-
----
-
-## The flow
-
-```
-ingest → prepare → slice → preview → ✋ you confirm → upload → print → review → it learns
-```
-
-A typical session looks like this:
+## Installation
 
 ```bash
-# Got an STL? Point at it.
-python scripts/ingest.py cool-thing.stl
-python scripts/prepare.py ~/.3dprint/work/cool-thing.stl       # orient + fit + thumbnail
-python scripts/slice.py  ~/.3dprint/work/cool-thing_prepared.stl --material PLA
-
-# Look at the time/grams estimate and the thumbnail. Happy? Then:
-python scripts/octoprint.py upload <gcode> --print-id 12       # stages it — does NOT print
-python scripts/octoprint.py start  <remote> --yes --print-id 12  # prints, only after you say so
-python scripts/octoprint.py status                              # check on it
-```
-
-Don't have a model yet? Describe it and let the agent write the OpenSCAD:
-
-```bash
-python scripts/describe.py --name phone-stand \
-  --code 'difference(){ cube([70,80,4]); /* ...the agent fills this in... */ }'
-# -> compiles to STL + renders a preview PNG you can eyeball before committing to plastic
-```
-
-## The part that makes it smart
-
-When a print comes out wrong, tell it what you saw:
-
-```bash
-python scripts/review.py record 12 --rating 2 --notes "corners lifted" --images corner.jpg
-python scripts/review.py learn  12 --trigger "first-layer lifting" --adjustment "brim_width=6"
-```
-
-From then on, every PLA print on that printer gets the wider brim automatically — until a
-newer lesson says otherwise. The adjustments are scoped per printer + material, so a fix for
-your Tina 2S doesn't leak onto a future Bambu.
-
----
-
-## Setup
-
-You'll need macOS (Apple Silicon is fine), Python 3.12+, and a few tools:
-
-```bash
-brew install --cask prusaslicer
-brew install --cask openscad@snapshot   # the 2021.01 cask is Intel-only and won't run on M-series
-
-git clone <this repo> ~/dev/3d-print-skill
+git clone https://github.com/therynamo/3d-print-skill ~/dev/3d-print-skill
 cd ~/dev/3d-print-skill
 python -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 
-python scripts/setup.py --seed --fetch-tweaker    # health check + seed your printer + grab auto-orient
-ln -s "$PWD" ~/.claude/skills/3d-print             # make it available as a Claude skill
+# Health check, seed the default printer, fetch the auto-orient tool:
+python scripts/setup.py --seed --fetch-tweaker
+
+# Expose as a Claude skill:
+ln -s "$PWD" ~/.claude/skills/3d-print
 ```
 
-`setup.py` is a friendly doctor — run it any time and it'll tell you exactly what's missing
-and how to fix it. For OctoPrint, drop your credentials in your shell profile (never in the
-repo):
+Configure OctoPrint credentials in your shell profile (`~/.zshrc`). They are never stored in
+the repository or database:
 
 ```bash
-export OCTOPRINT_URL="http://octopi.local"   # or the Pi's IP if .local won't resolve
-export OCTOPRINT_API_KEY="your-key-here"
+export OCTOPRINT_URL="http://octopi.local"   # use the Pi's IP if .local does not resolve
+export OCTOPRINT_API_KEY="your-api-key"
 ```
 
-> **Tip:** if `octopi.local` doesn't resolve for the Python tools, use the Pi's IP and give
-> it a DHCP reservation so it never changes on you.
+`python scripts/setup.py` re-runs the health check at any time and reports exactly what is
+missing.
 
----
+## Default printer
 
-## A note on the Tina 2S
+The seeded default is the **WEEFUN Tina 2S**:
 
-It's a charming little printer (100 × 105 × 100 mm, 0.4 mm nozzle) with one real constraint:
-**the bed maxes out at 60 °C.** PLA is happy there. PETG technically prints, but it wants a
-70–80 °C bed for adhesion — so the PETG profile pins the bed at 60, forces a brim, and the
-skill will remind you to lay down a glue stick. Treat PETG as "works, with care," not
-"works, ignore it."
+| Spec | Value |
+|------|-------|
+| Build volume | 100 × 105 × 100 mm |
+| Nozzle | 0.4 mm |
+| Bed temperature | 60 °C max |
+| Firmware | Marlin |
+| Materials | PLA (recommended), PETG (marginal) |
 
----
+Because the bed maxes at 60 °C, profiles target 55 °C (PLA) and 58 °C (PETG) — a bed target
+set at the ceiling can hang `M190` (wait-for-bed) indefinitely. PETG is supported but
+marginal: it relies on a forced brim and a glue stick for adhesion.
 
-## Safety, plainly
+## Usage
 
-- **Nothing prints without you.** `octoprint.py start` flat-out refuses unless you pass
-  `--yes`, and the skill is instructed to get your explicit confirmation first. Slicing,
-  previewing, and uploading are all safe and reversible; starting a print is the one
-  physical, hard-to-undo step, so it's gated.
-- **Your secrets stay yours.** API keys live in environment variables. The database,
-  downloads, and generated G-code live in `~/.3dprint/`, outside the repo. Nothing sensitive
-  is ever committed.
-- **No GPL in the box.** [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) (the
-  auto-orient engine, GPL-3.0) is fetched at setup and invoked as a separate program, not
-  bundled — so this repo stays cleanly MIT.
+The pipeline is a sequence of scripts. Each prints a human summary, or JSON with `--json`.
 
----
+```bash
+# 1. Ingest and prepare
+python scripts/ingest.py model.stl
+python scripts/prepare.py ~/.3dprint/work/model.stl
 
-## What's in here
+# 2. Slice (applies adjustment rules + learned lessons)
+python scripts/slice.py ~/.3dprint/work/model_prepared.stl --material PLA
 
-| Path | What it does |
-|------|--------------|
-| `SKILL.md` | The agent's entry point — when to use it and how the pipeline fits together |
+# 3. Review the time/grams estimate and thumbnail, then upload (does NOT print)
+python scripts/octoprint.py upload <gcode> --print-id <N>
+
+# 4. Start the print — requires --yes and your confirmation
+python scripts/octoprint.py start <remote_name> --yes --print-id <N>
+
+# 5. Monitor / cancel
+python scripts/octoprint.py status
+python scripts/octoprint.py cancel --print-id <N>
+```
+
+Text-to-3D (the agent authors the OpenSCAD; the script compiles and previews it):
+
+```bash
+python scripts/describe.py --name bracket --code '<openscad source>'
+```
+
+## Talking to the agent
+
+The skill is driven by natural language. Representative requests and what each triggers:
+
+| You say | The agent does |
+|---------|----------------|
+| "Print this STL on my Tina 2S." | Ingest → prepare → slice → preview → asks you to confirm → upload → print |
+| "Slice this but don't print yet." | Stops after slicing and shows the estimate + thumbnail |
+| "Make a 30mm cube with a 10mm hole and show me." | Authors OpenSCAD, compiles, returns a preview PNG |
+| "Yes, go ahead and print it." | Runs the gated start (the only step that begins a physical print) |
+| "Use PETG instead." | Re-slices with the PETG profile and warns about the marginal bed |
+| "This came out stringy / the corners lifted." (with a photo) | Reviews the image, records the outcome, and stores a lesson that adjusts future slices |
+| "Cancel the print." | Cancels the active job |
+| "Switch to my other printer." | Changes the active printer (see below) |
+
+The agent will not start a print without an explicit instruction to do so.
+
+## Switching printers
+
+```bash
+python scripts/printers.py list                  # show registered printers
+python scripts/printers.py add ender3 \
+    --bed-x 220 --bed-y 220 --bed-z 250 --nozzle-max-c 260 --bed-max-c 110 \
+    --materials PLA,PETG,ABS                      # register a new printer
+python scripts/printers.py switch ender3         # make it the default
+python scripts/printers.py retire tina2s         # mark a printer retired
+python scripts/printers.py show ender3           # inspect one printer
+```
+
+`prepare`, `slice`, and the OctoPrint commands accept `--printer <name>`; without it they use
+the active default. Lessons learned are scoped per printer + material, so adjustments do not
+leak between machines. Note that profiles in `profiles/` are tuned for the Tina 2S; add
+profiles for other printers as needed.
+
+## Evaluation
+
+A test harness drives the full pipeline and grades the skill against slice-quality and
+skill-authoring criteria, producing a self-contained HTML report and JSON data:
+
+```bash
+python eval/evaluate.py
+# writes eval/report.html (open on any device) and eval/results.json
+```
+
+The report covers a functional suite (does the pipeline work end to end?) and a quality suite
+(frontmatter, description, progressive disclosure, working references).
+
+## Safety
+
+- Prints never start automatically. `octoprint.py start` requires `--yes` in addition to an
+  explicit user instruction. Slicing, previewing, and uploading are safe and reversible;
+  starting a print is the only physical, hard-to-reverse action and is gated accordingly.
+- API keys live in environment variables. The database, downloads, and generated G-code live
+  under `~/.3dprint/`, outside the repository. Nothing sensitive is committed.
+- Tweaker-3 (GPL-3.0) is fetched at runtime and invoked as a subprocess, never redistributed
+  in this repository.
+
+## Repository layout
+
+| Path | Purpose |
+|------|---------|
+| `SKILL.md` | Agent entry point: when to use the skill and how the pipeline fits together |
 | `scripts/` | `setup`, `printers`, `ingest`, `prepare`, `slice`, `describe`, `octoprint`, `jobs`, `review` |
-| `profiles/` | Self-contained PrusaSlicer configs (PLA, PETG) — tweak these to retune your defaults |
-| `references/` | The adjustment-rule definitions, including the overhang math |
-| `eval/` | A test harness that drives the whole pipeline and grades the skill; outputs an HTML report |
-| `PLAN.md` / `PROGRESS.md` | How it was built and where each checkpoint landed |
-
-Want to verify everything works on your machine? Run the evaluation:
-
-```bash
-python eval/evaluate.py    # writes eval/report.html — open it on your phone
-```
-
----
+| `profiles/` | PrusaSlicer configuration bundles (PLA, PETG) |
+| `references/` | Adjustment-rule definitions and slicing rationale |
+| `eval/` | Evaluation harness and generated reports |
+| `PLAN.md`, `PROGRESS.md` | Build plan and checkpoint history |
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Use it, fork it, point it at your own printer. Tweaker-3 is
-GPL-3.0 and is fetched separately at runtime rather than redistributed here.
+MIT — see [LICENSE](LICENSE). Tweaker-3 is GPL-3.0 and is fetched separately at runtime
+rather than redistributed here.
