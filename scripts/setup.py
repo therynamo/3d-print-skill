@@ -31,9 +31,9 @@ def check_tools() -> list[bool]:
     brew = shutil.which("brew")
     res.append(line(OK if brew else WARN, "Homebrew",
                     brew or "not found (needed to install slicer/openscad)"))
-    orca = common.orca_bin()
-    res.append(line(OK if orca else BAD, "OrcaSlicer CLI",
-                    orca or "missing -> brew install --cask orcaslicer"))
+    prusa = common.prusa_bin()
+    res.append(line(OK if prusa else BAD, "PrusaSlicer CLI",
+                    prusa or "missing -> brew install --cask prusaslicer"))
     scad = common.openscad_bin()
     res.append(line(OK if scad else BAD, "OpenSCAD (native)",
                     scad or "missing -> brew install --cask openscad@snapshot "

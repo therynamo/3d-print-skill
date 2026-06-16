@@ -24,6 +24,12 @@ TWEAKER_DIR = VENDOR_DIR / "Tweaker-3"
 TWEAKER_REPO = "https://github.com/ChristophSchranz/Tweaker-3.git"
 
 # --- candidate tool locations (resolved lazily; verified by setup.py) ---
+PRUSA_CANDIDATES = [
+    "/Applications/PrusaSlicer.app/Contents/MacOS/PrusaSlicer",
+    "/Applications/Original Prusa Drivers/PrusaSlicer.app/Contents/MacOS/PrusaSlicer",
+    shutil.which("prusa-slicer") or "",
+    shutil.which("PrusaSlicer") or "",
+]
 ORCA_CANDIDATES = [
     "/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer",
     shutil.which("orca-slicer") or "",
@@ -51,6 +57,10 @@ def find_tool(candidates: list[str]) -> str | None:
         if c and Path(c).exists():
             return c
     return None
+
+
+def prusa_bin() -> str | None:
+    return find_tool(PRUSA_CANDIDATES)
 
 
 def orca_bin() -> str | None:

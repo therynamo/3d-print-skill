@@ -3,16 +3,34 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 2 complete → Phase 3 next
-**Status:** CHECKPOINT 2 passed
+**Current phase:** Phase 3 complete → Phase 4 next
+**Status:** CHECKPOINT 3 passed
 
 ## Next action
-Begin Phase 3 — Slice + adjustment engine. Create OrcaSlicer Tina 2S PLA/PETG
-profiles (port from Wiibuilder/Cura TINA2S def), build `slice.py` (invoke
-OrcaSlicer CLI, parse time/grams/layers, apply codified adjustment rules + consult
-`lessons`), and finalize `references/adjustment-rules.md`. Verify CHECKPOINT 3:
-slice a model -> valid gcode + summary; a >50deg overhang auto-enables supports
-with an explanation.
+Begin Phase 4 — OctoPrint upload + confirm gate + job logging. Build `octoprint.py`
+(upload sliced gcode to `/api/files/local` via X-Api-Key; NEVER auto-start a print —
+require an explicit confirm before issuing the print command) and `jobs.py` (CRUD over
+the `prints` table: list/show/update status). Verify CHECKPOINT 4: end-to-end on the
+real Tina 2S — upload a calibration gcode, confirm, print, and log the job.
+
+## Phase 3 notes
+- **Slicer = PrusaSlicer** (2.9.5, universal at /Applications/PrusaSlicer.app/...).
+  Chosen over OrcaSlicer for clean CLI: self-contained INI + `--export-gcode`.
+- Profiles: `profiles/tina2s_pla.ini`, `tina2s_petg.ini`. PETG pins bed at 60C
+  (out-of-spec) and forces a 5mm brim + glue-stick warning.
+- **CLI override gotcha:** PrusaSlicer's named CLI flags don't cover every config
+  key (booleans like `--support-material` take NO value -> "No such file: 1").
+  slice.py instead writes a *merged effective INI* (profile + overrides, replacing
+  existing keys to avoid "duplicate key name") and `--load`s that.
+- **grams gotcha:** PrusaSlicer leaves `total filament used [g] = 0.00` unless
+  `filament_density` is set. Added density (PLA 1.24, PETG 1.27); slice.py also
+  derives grams = cm3 * density as a fallback.
+- Adjustment engine (`references/adjustment-rules.md`): R1 supports (overhang
+  severity = asin(-normal.z); >50deg & >=1cm2 -> support_material=1; also honors
+  PrusaSlicer's own stability warning via a re-slice), R2/R3 brim (tall aspect>4 /
+  footprint<10mm), R4 PETG warning. Lessons table layered on top.
+- Verified: demo model (90deg overhang, 9.15cm2) auto-enabled supports w/ explanation;
+  PLA 3h4m/23.91g/473 layers, PETG 3h30m/25.8g; print logged as row #1.
 
 ## Phase 2 notes
 - ingest.py: local path + direct http(s) file URL + zip extraction all work.
@@ -36,9 +54,7 @@ with an explanation.
 - [x] CHECKPOINT 0 — scaffolding + symlink + initial commit (2026-06-16)
 - [x] CHECKPOINT 1 — printer registry + DB + setup doctor (2026-06-16)
 - [x] CHECKPOINT 2 — ingest + prepare (orient/scale/thumbnail) (2026-06-16)
-- [ ] CHECKPOINT 1 — printer registry + DB
-- [ ] CHECKPOINT 2 — ingest + prepare
-- [ ] CHECKPOINT 3 — slice + adjustment engine
+- [x] CHECKPOINT 3 — slice + adjustment engine (2026-06-16)
 - [ ] CHECKPOINT 4 — OctoPrint upload + confirm + job logging
 - [ ] CHECKPOINT 5 — text→3D
 - [ ] CHECKPOINT 6 — outcome review loop
