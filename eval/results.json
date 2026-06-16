@@ -1,0 +1,78 @@
+{
+  "generated": "2026-06-16 07:27",
+  "commit": "df4fc5d",
+  "functional": [
+    {
+      "name": "Setup doctor runs",
+      "pass": true,
+      "detail": "doctor ran and reported a checklist"
+    },
+    {
+      "name": "Slice produces time/grams/layers",
+      "pass": true,
+      "detail": "time=3h 5m 28s grams=24.03 layers=473"
+    },
+    {
+      "name": "Steep overhang auto-enables supports",
+      "pass": true,
+      "detail": "supports auto-enabled with explanation"
+    },
+    {
+      "name": "Text-to-3D renders a preview",
+      "pass": true,
+      "detail": "preview rendered (14343 bytes)"
+    },
+    {
+      "name": "Print start refuses without --yes",
+      "pass": true,
+      "detail": "start refused without --yes (physical-action gate)"
+    },
+    {
+      "name": "Lessons feedback applied on re-slice",
+      "pass": true,
+      "detail": "learned lesson applied on re-slice"
+    },
+    {
+      "name": "Job history lists",
+      "pass": true,
+      "detail": "job history listed"
+    }
+  ],
+  "quality": [
+    {
+      "name": "Valid frontmatter (name+description)",
+      "pass": true,
+      "detail": "name='3d-print', description present"
+    },
+    {
+      "name": "Description length in range",
+      "pass": true,
+      "detail": "505 chars (target 50-600)"
+    },
+    {
+      "name": "Description has trigger cues",
+      "pass": true,
+      "detail": "trigger cues present: ['\"', 'print this', 'slice', 'make a model', 'use when', ' when ']"
+    },
+    {
+      "name": "Third-person/imperative description",
+      "pass": true,
+      "detail": "third-person/imperative"
+    },
+    {
+      "name": "SKILL.md body word count lean",
+      "pass": true,
+      "detail": "501 words (target 300-3000, lean)"
+    },
+    {
+      "name": "Progressive disclosure implemented",
+      "pass": true,
+      "detail": "references/ + scripts/ exist and are pointed to"
+    },
+    {
+      "name": "Referenced files all resolve",
+      "pass": true,
+      "detail": "all 10 referenced files exist"
+    }
+  ]
+}

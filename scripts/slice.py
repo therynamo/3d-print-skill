@@ -115,8 +115,9 @@ def adjustments(geo: dict, material: str, lessons: list) -> tuple[dict, list]:
 
 
 def fetch_lessons(conn, printer_id: int, material: str) -> list:
+    # Oldest first so the most recent lesson wins when two touch the same key.
     return conn.execute(
-        "SELECT * FROM lessons WHERE printer_id=? AND material=? ORDER BY ts DESC",
+        "SELECT * FROM lessons WHERE printer_id=? AND material=? ORDER BY ts ASC, id ASC",
         (printer_id, material.upper()),
     ).fetchall()
 
