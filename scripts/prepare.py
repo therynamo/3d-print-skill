@@ -122,6 +122,7 @@ def prepare(model_path: str, printer_name: str | None = None) -> dict:
         "scaled_to_fit": scaled,
         "scale_factor": round(factor, 4),
         "fits_bed": fits,
+        "deliver": common.deliver_files(str(final_stl), thumb_path),
     }
 
 
@@ -147,6 +148,8 @@ def main(argv=None) -> int:
         print(f"prepared: {r['prepared_stl']}")
         if r["thumbnail"]:
             print(f"thumbnail: {r['thumbnail']}")
+        if r["deliver"]:
+            print(f"deliver_to_user: {' '.join(r['deliver'])}")
     return 0
 
 

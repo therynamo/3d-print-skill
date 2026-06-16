@@ -45,7 +45,12 @@ Run these in order; each prints a summary (add `--json` for machine-readable out
    Reports time / grams / layers and **why** any setting changed (e.g. a >50°
    overhang auto-enables supports). See `references/adjustment-rules.md`.
 
-4. **Preview & confirm** — show the user the thumbnail + slice summary. Wait for an
+4. **Preview & confirm** — show the user the thumbnail + slice summary. `prepare.py`
+   and `describe.py` print a `deliver_to_user:` line listing the file(s) to hand the
+   user (and include `deliver` in `--json`); send those with the file-delivery tool.
+   By default this is **both** the inline PNG and the STL — macOS Quick Look / Preview
+   render STL natively, so the user can orbit the model instead of a fixed-angle PNG.
+   Set `$PRINT3D_PREVIEW_FORMAT` to `stl`, `png`, or `both` to change this. Wait for an
    explicit "yes, print it."
 
 5. **Upload** (safe, no print):
@@ -60,8 +65,9 @@ When the user describes a part, **you** author parametric OpenSCAD (mm units), t
 ```
 python scripts/describe.py --name <slug> --code '<openscad source>'
 ```
-Read the returned `preview_png`, show it, and on approval feed `stl_path` into
-prepare → slice → the print flow above.
+Show the returned preview, sending the file(s) named in `deliver_to_user:` (the STL
+orbits in macOS Preview; see step 4 and `$PRINT3D_PREVIEW_FORMAT`). On approval feed
+`stl_path` into prepare → slice → the print flow above.
 
 ## Outcome review & learning
 When the user sends photos of a finished print:

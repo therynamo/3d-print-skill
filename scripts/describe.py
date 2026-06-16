@@ -46,6 +46,7 @@ def compile_scad(scad_src: str, name: str) -> dict:
         "stl_path": str(stl_path),
         "preview_png": str(png_path),
         "dimensions_mm": ext,
+        "deliver": common.deliver_files(str(stl_path), str(png_path)),
     }
 
 
@@ -82,7 +83,10 @@ def main(argv=None) -> int:
         print(f"compiled: {r['stl_path']}")
         print(f"dimensions: {d[0]} x {d[1]} x {d[2]} mm")
         print(f"preview: {r['preview_png']}")
-        print("Next: eyeball the preview, then prepare.py + slice.py if you like it.")
+        if r["deliver"]:
+            print(f"deliver_to_user: {' '.join(r['deliver'])}")
+        print("Next: send deliver_to_user file(s) to the user (STL orbits in macOS "
+              "Preview), then prepare.py + slice.py if you like it.")
     return 0
 
 

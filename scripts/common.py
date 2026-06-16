@@ -71,6 +71,29 @@ def openscad_bin() -> str | None:
     return find_tool(OPENSCAD_CANDIDATES)
 
 
+def preview_format() -> str:
+    """Which preview artifact(s) to surface to the user: 'stl' | 'png' | 'both'.
+
+    macOS Quick Look / Preview render STL natively, so sending the STL lets the user
+    orbit the model instead of being stuck with the script's fixed-angle PNG. Default
+    is 'both' (inline PNG for a quick glance + STL to spin). Override via
+    $PRINT3D_PREVIEW_FORMAT.
+    """
+    val = (os.environ.get("PRINT3D_PREVIEW_FORMAT") or "both").strip().lower()
+    return val if val in ("stl", "png", "both") else "both"
+
+
+def deliver_files(stl_path: str | None, png_path: str | None) -> list[str]:
+    """Files the agent should send the user at a preview step, per preview_format()."""
+    fmt = preview_format()
+    out: list[str] = []
+    if fmt in ("stl", "both") and stl_path:
+        out.append(stl_path)
+    if fmt in ("png", "both") and png_path:
+        out.append(png_path)
+    return out
+
+
 def render_stl_png(stl_path: str, png_path: str, size: int = 700) -> str:
     """Headless STL -> PNG via OpenSCAD (imports the mesh and auto-frames it)."""
     scad = openscad_bin()
