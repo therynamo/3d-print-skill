@@ -3,15 +3,12 @@
 > Live checkpoint state for the 3D Print Skill. Update this whenever a checkpoint
 > is reached. See `PLAN.md` for the full phase definitions and "HOW TO RESUME".
 
-**Current phase:** Phase 6 complete → Phase 7 next
-**Status:** CHECKPOINT 6 passed (CHECKPOINT 4 live print still pending hardware)
+**Current phase:** Phase 7 complete → Phase 8 next
+**Status:** CHECKPOINT 7 passed (CHECKPOINT 4 live print still pending hardware)
 
 ## Next action
-Begin Phase 7 — Polish + docs + open-source packaging. Author `SKILL.md` (the agent
-entry point: when to use, the full pipeline, per-script usage, the confirm-gate
-safety rule, progressive disclosure to references/), `README.md`, `LICENSE` (MIT),
-and confirm the skill symlink resolves. Verify CHECKPOINT 7: SKILL.md drives the
-whole pipeline end-to-end from a cold read.
+Begin Phase 8 — Run the skills evaluation, generate HTML + JSON results, fix any
+regressions, then SendUserFile the HTML + data to the user for mobile viewing.
 
 ## ACTION REQUIRED (you, the user) to finish CHECKPOINT 4
 The OctoPrint bridge is built + unit-tested offline, but a real print needs your
@@ -20,6 +17,13 @@ credentials + the powered-on Tina 2S:
   2. `python scripts/octoprint.py upload <gcode> --print-id N`   (stages, no print)
   3. After eyeballing, confirm, then: `python scripts/octoprint.py start <remote> --yes`
   4. `python scripts/octoprint.py status` to watch progress.
+
+## Phase 7 notes
+- Authored SKILL.md (frontmatter name=3d-print + description; hard confirm-gate rule;
+  full pipeline; text-to-3D; review/learn; progressive disclosure), README.md, MIT
+  LICENSE. Tweaker-3 GPL stays fetched-not-bundled (noted in both README + LICENSE).
+- Verified all 9 scripts `--help` cleanly and the ~/.claude/skills/3d-print symlink
+  resolves to SKILL.md.
 
 ## Phase 6 notes
 - `review.py`: record (rating/notes/images + auto status done>=3/failed<3), learn
