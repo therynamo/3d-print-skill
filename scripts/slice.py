@@ -26,6 +26,7 @@ SEVERE_OVERHANG_DEG = 50.0
 SEVERE_AREA_GATE_CM2 = 1.0
 TALL_ASPECT = 4.0
 TINY_FOOTPRINT_MM = 10.0
+BED_CONTACT_MM = 0.6  # downward faces within this of the bed rest on the plate
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +44,12 @@ def measure(stl_path: str) -> dict:
 
     normals = mesh.face_normals
     areas = mesh.area_faces
-    down = normals[:, 2] < 0
+    # A downward face resting on the bed is supported by the plate, not an overhang.
+    # Exclude faces whose lowest point is within the first layer of the bed.
+    z_min = float(mesh.bounds[0][2])
+    bed_band = z_min + BED_CONTACT_MM
+    face_min_z = mesh.vertices[mesh.faces][:, :, 2].min(axis=1)
+    down = (normals[:, 2] < 0) & (face_min_z > bed_band)
     severity = np.degrees(np.arcsin(np.clip(-normals[down, 2], 0.0, 1.0)))
     down_areas = areas[down]
     if severity.size:
