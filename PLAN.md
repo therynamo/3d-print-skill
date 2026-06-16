@@ -40,11 +40,21 @@ Open-source. Repo lives at `~/dev/3d-print-skill`, symlinked into
 | Multi-printer | First-class: add / switch / retire; every job stamped with its printer; retiring preserves history |
 | Credentials | **Env vars** `OCTOPRINT_URL`, `OCTOPRINT_API_KEY` (per-printer overrides resolved from DB) |
 
-### Seeded printer
-**Tina 2S** — bed `100×100×110 mm` (CONFIRM real usable Z; community Cura def is
-100w×110d×~100h — flag mismatch before trusting), heated bed, single 0.4 mm
-extruder, Marlin flavor, OctoPrint serial **1,000,000 baud**, materials PLA+PETG,
-default printer.
+### Seeded printer (CONFIRMED from official WEEFUN Tina 2S guide, 2026-06-16)
+**Tina 2S** — build volume **X=100, Y=105, Z=100 mm** · single **0.4 mm** nozzle
+(0.2/0.3/0.4 included) · nozzle max **245 °C** · **heated bed max 60 °C** ·
+flexible spring-steel magnetic plate · 3-point auto-level · max speed 200 mm/s ·
+Marlin (Silent TMC2208) · connectivity TF/APP/WiFi/USB · bundled slicer
+**Wiibuilder** (Cura-based, ships a TINA2S profile — port from it) · default printer.
+
+**USB/serial baud: UNRESOLVED** — Wiibuilder serial dialog shows 115200; OctoPrint
+community guide uses 1,000,000. Verify empirically when wiring OctoPrint; record
+the winner in PROGRESS.md.
+
+**PETG constraint:** bed caps at 60 °C (PETG normally wants 70–80 °C). So the PETG
+preset must rely on **glue stick + brim** for adhesion, bed pinned at 60 °C, and
+flag to the user that PETG adhesion is marginal on this hardware. Officially the
+printer lists PLA/PLA+/TPU; PETG is user-driven and out-of-spec.
 
 ---
 
@@ -127,7 +137,7 @@ nozzle 205 °C · bed 60 °C · 100% cooling after layer 1 · skirt · supports 
 | Decorative | 2 walls, 10–15% infill |
 | Functional / load-bearing | 4+ walls FIRST, then 30–50% infill |
 | Stress along layer lines | suggest reorientation (weakest between layers) |
-| PETG selected | nozzle ~235 °C, bed ~75 °C, fan 30–50% (off layer 1), higher retraction, slower, brim recommended |
+| PETG selected (Tina 2S) | nozzle ~235 °C, **bed pinned 60 °C (hardware max) + glue stick + brim required**, fan 30–50% (off layer 1), higher retraction, slower; warn adhesion is marginal |
 
 Full version with citations lives in `references/adjustment-rules.md`.
 
@@ -145,12 +155,32 @@ Full version with citations lives in `references/adjustment-rules.md`.
   symlink; `git -C ~/dev/3d-print-skill log --oneline` shows the initial commit.
 
 ### Phase 1 — Environment + printer registry foundation
+- [ ] `scripts/setup.py` (a "doctor" + installer): checks Homebrew, installs
+      OrcaSlicer/OpenSCAD/stl-thumb if missing, creates the venv + pip deps,
+      locates the OrcaSlicer CLI binary, and **interactively walks the user through**
+      the one-time printer/credential setup (see "Setup UX" below). Idempotent;
+      safe to re-run as a health check.
 - [ ] `requirements.txt` + venv bootstrap; verify OrcaSlicer/OpenSCAD/stl-thumb on PATH
 - [ ] `common.py`: env loading, DB init/migrate, printer resolution (active/default)
 - [ ] `printers.py`: add / list / switch / retire; seed Tina 2S
 - [ ] DB created at `~/.3dprint/history.db`
 - **CHECKPOINT 1:** `python scripts/printers.py list` shows Tina 2S as active+default
-  with correct bed dims; `printers.py add`/`switch`/`retire` round-trip works.
+  with correct bed dims (100×105×100); `printers.py add`/`switch`/`retire` round-trip
+  works; `setup.py` reports all tools green.
+
+#### Setup UX (what the user does once, and how the agent assists)
+The agent should make first-run nearly hands-off:
+1. Run `setup.py` → it installs missing tools via Homebrew and reports a checklist.
+2. **OctoPrint API key**: agent explains where to get it (OctoPrint → Settings →
+   Application Keys, or the legacy API key), then helps the user export
+   `OCTOPRINT_URL` (default `http://octopi.local`) and `OCTOPRINT_API_KEY` into
+   their shell profile (`~/.zshrc`). Agent offers to append the lines; user pastes
+   the key value (never commit it).
+3. **Connectivity test**: `setup.py` pings the OctoPrint API (`/api/version`) and
+   confirms the printer is reachable + the key works.
+4. **Baud**: if/when serial control is needed, agent guides adding the printer in
+   OctoPrint and resolving the 115200-vs-1,000,000 baud question empirically.
+5. Seed/confirm the Tina 2S record; multi-printer users repeat `printers.py add`.
 
 ### Phase 2 — Ingest + prepare (no printing yet)
 - [ ] `ingest.py`: STL/3MF/.scad passthrough; URL download (Printables + direct);
@@ -198,8 +228,13 @@ Full version with citations lives in `references/adjustment-rules.md`.
 
 ---
 
-## Open questions to confirm with user as they arise
-- Exact usable **Z height** of the Tina 2S (100 vs 110 mm).
-- Exact OrcaSlicer CLI binary path on this Mac + whether to install via cask or AppImage.
-- License choice for the repo (MIT?).
+## Resolved
+- **Bed**: 100 × 105 × 100 mm (official guide).
+- **License**: MIT (add `LICENSE` in Phase 7).
+- **Install**: approved to `brew install` OrcaSlicer + openscad + stl-thumb; locate
+  CLI binary during Phase 1 `setup.py`.
+
+## Open questions to confirm as they arise
+- OrcaSlicer CLI binary path on this Mac (resolve in `setup.py`).
+- Serial **baud** for OctoPrint: 115200 (Wiibuilder) vs 1,000,000 (community) — verify.
 - Whether Printables needs auth for the models the user pulls (anti-bot).
