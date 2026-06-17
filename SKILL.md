@@ -27,15 +27,20 @@ python scripts/setup.py --seed --fetch-tweaker   # doctor + seed Tina 2S + get a
 ```
 It checks PrusaSlicer, OpenSCAD (must be the `openscad@snapshot` arm64 cask),
 Python deps, the DB, and OctoPrint reachability, then prints exact next steps.
-Credentials live in env vars, never in the repo:
-`export OCTOPRINT_URL=...` and `export OCTOPRINT_API_KEY=...`.
+
+Credentials live in env vars, never committed. Set them either by exporting in your
+shell (e.g. `~/.zshrc`) **or** in a gitignored `.env` file — both `<repo>/.env` and
+`~/.3dprint/.env` are auto-loaded. Shell exports always win over `.env`, so an
+existing shell setup keeps working untouched. Keys:
+`OCTOPRINT_URL`, `OCTOPRINT_API_KEY`.
 
 ## The pipeline
 Run these in order; each prints a summary (add `--json` for machine-readable output).
 
 1. **Ingest** — normalize any input to a local model file.
    `python scripts/ingest.py <path|http(s)-url|zip>`
-   (Printables/Thingiverse *page* URLs need a direct file/zip link — it will say so.)
+   Printables model-page URLs are handled automatically via login (see below).
+   Other sites' *page* URLs still need a direct file/zip link — it will say so.
 
 2. **Prepare** — auto-orient (min support), scale-to-fit the bed, thumbnail.
    `python scripts/prepare.py <model> [--printer NAME]`
@@ -68,6 +73,21 @@ python scripts/describe.py --name <slug> --code '<openscad source>'
 Show the returned preview, sending the file(s) named in `deliver_to_user:` (the STL
 orbits in macOS Preview; see step 4 and `$PRINT3D_PREVIEW_FORMAT`). On approval feed
 `stl_path` into prepare → slice → the print flow above.
+
+## Printables login (gated downloads)
+Printables has no public API, so downloads are driven through a real Chromium
+(Playwright). Set `PRINTABLES_USERNAME` (or `PRINTABLES_EMAIL`) and
+`PRINTABLES_PASSWORD` (shell or `.env`). The session is persisted at
+`~/.3dprint/printables_state.json`, so the password is only used when there is no
+valid session.
+```
+python scripts/printables.py login [--headed]      # establish/refresh the session
+python scripts/printables.py fetch <model-url> [--headed]
+```
+`ingest.py` calls this automatically for `printables.com` model URLs. If automated
+login is blocked (Cloudflare / captcha / 2FA), re-run with `--headed` to log in by
+hand once; the saved session is reused on later headless runs. Respect each model's
+license; only download what you're entitled to for personal printing.
 
 ## Outcome review & learning
 When the user sends photos of a finished print:

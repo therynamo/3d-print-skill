@@ -60,15 +60,16 @@ def _extract_zip(zip_path: Path) -> list[Path]:
     return found
 
 
-def _printables_hint(url: str) -> str:
-    return (
-        "Printables model pages don't expose a direct file link without the site's "
-        "API/login. Open the model, copy the direct download URL of the .stl/.3mf "
-        "(or the 'Download all' .zip), and pass that instead."
-    )
+def _fetch_printables(url: str, headed: bool) -> Path:
+    """Log in and download a Printables model via the browser-driven fetcher."""
+    import printables
+    files = printables.fetch(url, headed=headed)
+    # Prefer a zip (multi-part bundle); otherwise the largest file.
+    zips = [f for f in files if f.suffix.lower() == ".zip"]
+    return zips[0] if zips else max(files, key=lambda f: f.stat().st_size)
 
 
-def ingest(source: str) -> dict:
+def ingest(source: str, headed: bool = False) -> dict:
     source_type = "url" if _is_url(source) else "file"
     candidates: list[Path] = []
 
@@ -76,8 +77,9 @@ def ingest(source: str) -> dict:
         host = urllib.parse.urlparse(source).netloc.lower()
         path_ext = Path(urllib.parse.urlparse(source).path).suffix.lower()
         if "printables.com" in host and path_ext not in MODEL_EXTS and path_ext != ".zip":
-            raise ValueError(_printables_hint(source))
-        local = _download(source)
+            local = _fetch_printables(source, headed)
+        else:
+            local = _download(source)
     else:
         local = Path(source).expanduser().resolve()
         if not local.exists():
@@ -107,10 +109,12 @@ def ingest(source: str) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Normalize a printable input")
     ap.add_argument("source", help="local path or http(s) URL")
+    ap.add_argument("--headed", action="store_true",
+                    help="for Printables URLs: open a visible browser (manual login)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     try:
-        result = ingest(args.source)
+        result = ingest(args.source, headed=args.headed)
     except Exception as e:
         print(f"ingest error: {e}", file=sys.stderr)
         return 1

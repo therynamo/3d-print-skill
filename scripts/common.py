@@ -13,11 +13,40 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+def _load_env_file(path: Path) -> None:
+    """Fill os.environ from a KEY=VALUE .env file WITHOUT overriding the live shell.
+
+    Shell exports (e.g. from ~/.zshrc) always win; .env only supplies keys that are
+    otherwise unset. Supports optional `export ` prefix and quoted values. Missing or
+    unreadable files are silently ignored.
+    """
+    try:
+        text = path.read_text()
+    except (FileNotFoundError, NotADirectoryError, PermissionError, IsADirectoryError):
+        return
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        if key.startswith("export "):
+            key = key[len("export "):].strip()
+        val = val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+# Repo-local .env first (handy for PRINT3D_HOME), then the per-user data-dir .env.
+# Both are gitignored. Shell-exported vars still take precedence over either file.
+_load_env_file(Path(__file__).resolve().parent.parent / ".env")
+
 DATA_DIR = Path(os.environ.get("PRINT3D_HOME", Path.home() / ".3dprint"))
 DB_PATH = DATA_DIR / "history.db"
 WORK_DIR = DATA_DIR / "work"
 DOWNLOAD_DIR = DATA_DIR / "downloads"
 VENDOR_DIR = DATA_DIR / "vendor"
+_load_env_file(DATA_DIR / ".env")
 # Tweaker-3 is GPL-3.0; fetched here at setup time, NOT bundled in this MIT repo.
 # We only invoke it as a separate program (subprocess) -> license-clean.
 TWEAKER_DIR = VENDOR_DIR / "Tweaker-3"
