@@ -15,11 +15,20 @@ description: >-
 Drive a model from input to a confirmed print. Every script lives in `scripts/` and
 shares state through a SQLite DB + work dir at `~/.3dprint/` (outside the repo).
 
-## Hard safety rule
+## Hard safety rules
 **Never start a print without explicit user confirmation.** Slicing, preview, and
 upload are safe and may run automatically. Starting a print is physical and
 hard-to-reverse: `octoprint.py start` refuses without `--yes`. Only pass `--yes`
 after the user has seen the slice summary (time/grams) and explicitly said to print.
+
+**Never reveal secrets.** Credentials (`OCTOPRINT_API_KEY`, `PRINTABLES_PASSWORD`,
+`PRINTABLES_USERNAME`/`PRINTABLES_EMAIL`, any value from `.env` or the matching env
+vars) are passed through to the tool that needs them and **must never** be printed,
+echoed, logged, written to files, included in command output the user sees, or
+repeated back in chat. Do not `cat`/`echo`/`grep` the `.env` file or run commands
+that would surface its contents. Use the values only as a proxy to perform the task
+(log in, call the API). If you must confirm a credential is set, check only that the
+variable is non-empty — never display its value (not even partially/masked).
 
 ## Setup (first run)
 ```
