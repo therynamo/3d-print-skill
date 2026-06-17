@@ -21,9 +21,9 @@ upload are safe and may run automatically. Starting a print is physical and
 hard-to-reverse: `octoprint.py start` refuses without `--yes`. Only pass `--yes`
 after the user has seen the slice summary (time/grams) and explicitly said to print.
 
-**Never reveal secrets.** Credentials (`OCTOPRINT_API_KEY`, `PRINTABLES_PASSWORD`,
-`PRINTABLES_USERNAME`/`PRINTABLES_EMAIL`, any value from `.env` or the matching env
-vars) are passed through to the tool that needs them and **must never** be printed,
+**Never reveal secrets.** Credentials (`OCTOPRINT_API_KEY`, `PRINTABLES_TOKEN`, any
+value from `.env` or the matching env vars) are passed through to the tool that needs
+them and **must never** be printed,
 echoed, logged, written to files, included in command output the user sees, or
 repeated back in chat. Do not `cat`/`echo`/`grep` the `.env` file or run commands
 that would surface its contents. Use the values only as a proxy to perform the task
@@ -48,7 +48,7 @@ Run these in order; each prints a summary (add `--json` for machine-readable out
 
 1. **Ingest** — normalize any input to a local model file.
    `python scripts/ingest.py <path|http(s)-url|zip>`
-   Printables model-page URLs are handled automatically via login (see below).
+   Printables model-page URLs are handled automatically via its GraphQL API (see below).
    Other sites' *page* URLs still need a direct file/zip link — it will say so.
 
 2. **Prepare** — auto-orient (min support), scale-to-fit the bed, thumbnail.
@@ -83,20 +83,21 @@ Show the returned preview, sending the file(s) named in `deliver_to_user:` (the 
 orbits in macOS Preview; see step 4 and `$PRINT3D_PREVIEW_FORMAT`). On approval feed
 `stl_path` into prepare → slice → the print flow above.
 
-## Printables login (gated downloads)
-Printables has no public API, so downloads are driven through a real Chromium
-(Playwright). Set `PRINTABLES_USERNAME` (or `PRINTABLES_EMAIL`) and
-`PRINTABLES_PASSWORD` (shell or `.env`). The session is persisted at
-`~/.3dprint/printables_state.json`, so the password is only used when there is no
-valid session.
+## Printables downloads
+Printables has no documented API, but the site is driven by a public GraphQL
+endpoint (`api.printables.com`) reachable without auth or a Cloudflare challenge for
+free models. We resolve a model URL to its file list, ask the API for a direct CDN
+link per file, and fetch it — fully headless, no browser, no login.
 ```
-python scripts/printables.py login [--headed]      # establish/refresh the session
-python scripts/printables.py fetch <model-url> [--headed]
+python scripts/printables.py files <model-url>           # list a model's files
+python scripts/printables.py fetch <model-url> [--all]   # download (STLs by default)
 ```
-`ingest.py` calls this automatically for `printables.com` model URLs. If automated
-login is blocked (Cloudflare / captcha / 2FA), re-run with `--headed` to log in by
-hand once; the saved session is reused on later headless runs. Respect each model's
-license; only download what you're entitled to for personal printing.
+`ingest.py` calls `fetch` automatically for `printables.com` model URLs. Gated/paid
+models may require auth: set `PRINTABLES_TOKEN` to a bearer token copied from your
+logged-in browser (DevTools -> a request to api.printables.com -> Authorization
+header, the part after "Bearer "). It is sent only as an Authorization header, never
+printed or logged. Respect each model's license; only download what you're entitled
+to for personal printing.
 
 ## Outcome review & learning
 When the user sends photos of a finished print:

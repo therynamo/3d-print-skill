@@ -1,191 +1,140 @@
 #!/usr/bin/env python3
-"""Automated Printables login + model download (no public API -> real browser).
+"""Printables model download via the site's own GraphQL API (no browser, no login).
 
-Printables is gated behind Prusa's SSO and has no documented API, so we drive a
-real Chromium via Playwright. The login session is persisted (storage_state) in the
-data dir, so the password is only used when there is no valid session yet.
+Printables has no *documented* API, but the website is driven by a public GraphQL
+endpoint (api.printables.com) that is reachable without authentication or a Cloudflare
+challenge for free models. We resolve a model URL to its file list, ask the API for a
+direct CDN download link per file, and fetch it. This works headless/remote (unlike a
+real-browser login, which needs a display the user can see).
 
-Credentials come from the environment (shell export or .env, see common._load_env_file):
-  PRINTABLES_USERNAME  (or PRINTABLES_EMAIL)   -- the Prusa account email
-  PRINTABLES_PASSWORD
+Gated/paid models may require auth: set PRINTABLES_TOKEN to a bearer token copied from
+your logged-in browser (DevTools -> a request to api.printables.com -> Authorization
+header, the part after "Bearer "). It is sent only as an Authorization header, never
+printed or logged.
 
-  python scripts/printables.py login [--headed]
-  python scripts/printables.py fetch <model-or-file-url> [--headed] [--json]
-
-`--headed` opens a visible browser; use it the first time or whenever automated login
-is blocked by Cloudflare / a captcha / 2FA -- log in by hand once and the saved
-session is reused on later headless runs.
+  python scripts/printables.py files <model-url>          # list files
+  python scripts/printables.py fetch <model-url> [--json]  # download files
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import sys
+import urllib.request
 from pathlib import Path
 
 import common
 
-STATE_PATH = lambda: common.DATA_DIR / "printables_state.json"  # noqa: E731
-LOGIN_URL = "https://www.printables.com/login"
-HOME_URL = "https://www.printables.com/"
-NAV_TIMEOUT_MS = 45_000
+GRAPHQL_URL = "https://api.printables.com/graphql/"
+UA = "Mozilla/5.0 (3d-print-skill)"
+# File buckets on PrintType -> the getDownloadLink fileType enum value.
+FILE_KINDS = {"stls": "stl", "slas": "sla", "gcodes": "gcode", "otherFiles": "other"}
 
 
-def _creds() -> tuple[str, str]:
-    user = os.environ.get("PRINTABLES_USERNAME") or os.environ.get("PRINTABLES_EMAIL")
-    pw = os.environ.get("PRINTABLES_PASSWORD")
-    if not user or not pw:
+def _model_id(url_or_id: str) -> str:
+    """Extract the numeric model id from a Printables URL or a bare id."""
+    s = url_or_id.strip()
+    if s.isdigit():
+        return s
+    m = re.search(r"/model/(\d+)", s)
+    if not m:
+        raise ValueError(f"Could not find a Printables model id in {url_or_id!r}")
+    return m.group(1)
+
+
+def _gql(query: str) -> dict:
+    body = json.dumps({"query": query}).encode()
+    headers = {"User-Agent": UA, "Content-Type": "application/json"}
+    token = os.environ.get("PRINTABLES_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(GRAPHQL_URL, data=body, headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as r:
+        payload = json.loads(r.read())
+    if payload.get("errors"):
+        msgs = "; ".join(e.get("message", "") for e in payload["errors"])
+        raise RuntimeError(f"Printables API error: {msgs}")
+    return payload["data"]
+
+
+def list_files(url_or_id: str) -> dict:
+    """Return {id, name, files:[{id, name, kind, fileType, size}]} for a model."""
+    pid = _model_id(url_or_id)
+    buckets = " ".join(f"{b}{{id name fileSize}}" for b in FILE_KINDS)
+    data = _gql(f"query{{print(id:{pid}){{id name {buckets}}}}}")
+    print_obj = data.get("print")
+    if not print_obj:
+        raise RuntimeError(f"No Printables model found for id {pid}")
+    files = []
+    for bucket, ftype in FILE_KINDS.items():
+        for f in print_obj.get(bucket) or []:
+            files.append({"id": f["id"], "name": f["name"], "kind": bucket,
+                          "fileType": ftype, "size": f.get("fileSize")})
+    return {"id": print_obj["id"], "name": print_obj["name"], "files": files}
+
+
+def _download_link(file_id: str, file_type: str, print_id: str) -> str:
+    data = _gql(
+        f"mutation{{getDownloadLink(id:{file_id},fileType:{file_type},"
+        f"printId:{print_id},source:model_detail){{ok output{{link}}}}}}"
+    )
+    res = data.get("getDownloadLink") or {}
+    if not res.get("ok") or not (res.get("output") or {}).get("link"):
         raise RuntimeError(
-            "Missing Printables credentials. Set PRINTABLES_USERNAME (or "
-            "PRINTABLES_EMAIL) and PRINTABLES_PASSWORD in your shell or .env."
+            f"Could not get a download link for file {file_id} "
+            f"(model may be gated -- set PRINTABLES_TOKEN)."
         )
-    return user, pw
+    return res["output"]["link"]
 
 
-def _new_context(p, headed: bool):
-    browser = p.chromium.launch(headless=not headed)
-    state = STATE_PATH()
-    ctx = browser.new_context(storage_state=str(state)) if state.exists() else browser.new_context()
-    ctx.set_default_timeout(NAV_TIMEOUT_MS)
-    return browser, ctx
-
-
-def _looks_logged_in(page) -> bool:
-    """Heuristic: an authenticated session exposes a user/avatar menu, not a Login link."""
-    try:
-        page.goto(HOME_URL, wait_until="domcontentloaded")
-    except Exception:
-        return False
-    for sel in ('a[href*="/logout"]', 'button[aria-label*="user" i]',
-                'a[href*="/my-models"]', 'img[alt*="avatar" i]'):
-        if page.locator(sel).count() > 0:
-            return True
-    return False
-
-
-def _do_login(page, user: str, pw: str) -> None:
-    page.goto(LOGIN_URL, wait_until="domcontentloaded")
-    # Printables hands off to Prusa SSO (Keycloak-style). Fill whatever appears.
-    email_sel = ('input[type="email"], input[name="username"], input[name="email"], '
-                 '#username, #email')
-    page.wait_for_selector(email_sel)
-    page.fill(email_sel, user)
-    # Single-page form usually has the password visible; multi-step needs a Continue.
-    pw_sel = 'input[type="password"], input[name="password"], #password'
-    if page.locator(pw_sel).count() == 0:
-        for nxt in ('button:has-text("Continue")', 'button:has-text("Next")',
-                    'button[type="submit"]'):
-            if page.locator(nxt).count() > 0:
-                page.click(nxt)
-                break
-        page.wait_for_selector(pw_sel)
-    page.fill(pw_sel, pw)
-    for submit in ('button:has-text("Log in")', 'button:has-text("Sign in")',
-                   'button[type="submit"]', 'input[type="submit"]'):
-        if page.locator(submit).count() > 0:
-            page.click(submit)
-            break
-    page.wait_for_url("**printables.com/**", timeout=NAV_TIMEOUT_MS)
-
-
-def login(headed: bool = False) -> Path:
-    """Log in and persist the session. Returns the storage_state path."""
-    from playwright.sync_api import sync_playwright
-
+def _download(url: str, suggested: str) -> Path:
     common.ensure_dirs()
-    user, pw = _creds()
-    with sync_playwright() as p:
-        browser, ctx = _new_context(p, headed)
-        page = ctx.new_page()
-        try:
-            if not _looks_logged_in(page):
-                if headed:
-                    # Manual escape hatch: let the human clear Cloudflare/2FA/captcha.
-                    page.goto(LOGIN_URL, wait_until="domcontentloaded")
-                    print("Complete the login in the opened browser window...",
-                          file=sys.stderr)
-                    page.wait_for_url("**printables.com/**", timeout=300_000)
-                else:
-                    _do_login(page, user, pw)
-            ctx.storage_state(path=str(STATE_PATH()))
-        except Exception as e:
-            raise RuntimeError(
-                f"Automated login failed ({type(e).__name__}: {str(e)[:160]}). "
-                "Re-run with --headed to log in manually once; the session is then reused."
-            ) from e
-        finally:
-            browser.close()
-    return STATE_PATH()
+    dest = common.DOWNLOAD_DIR / Path(suggested).name
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        dest.write_bytes(r.read())
+    return dest
 
 
-def fetch(url: str, headed: bool = False) -> list[Path]:
-    """Download a Printables model's files (zip or single) to DOWNLOAD_DIR."""
-    from playwright.sync_api import sync_playwright
-
-    common.ensure_dirs()
-    if not STATE_PATH().exists():
-        login(headed=headed)
-
+def fetch(url_or_id: str, kinds: tuple[str, ...] = ("stls",)) -> list[Path]:
+    """Download a model's printable files (default: STLs) to DOWNLOAD_DIR."""
+    info = list_files(url_or_id)
+    wanted = [f for f in info["files"] if f["kind"] in kinds]
+    if not wanted:
+        raise RuntimeError(
+            f"No {'/'.join(kinds)} files on model {info['id']} ({info['name']!r})."
+        )
     saved: list[Path] = []
-    with sync_playwright() as p:
-        browser, ctx = _new_context(p, headed)
-        page = ctx.new_page()
-        try:
-            if not _looks_logged_in(page):
-                browser.close()
-                login(headed=headed)
-                browser, ctx = _new_context(p, headed)
-                page = ctx.new_page()
-
-            page.goto(url, wait_until="domcontentloaded")
-            # Open the download control, then grab the "all / zip" option if present.
-            for trigger in ('button:has-text("Download")', 'a:has-text("Download")',
-                            'button[aria-label*="download" i]'):
-                if page.locator(trigger).first.count() > 0:
-                    page.locator(trigger).first.click()
-                    break
-            with page.expect_download(timeout=NAV_TIMEOUT_MS) as dl_info:
-                for opt in ('text=/download all/i', 'text=/\\.zip/i',
-                            'a[href*="download"]', 'button:has-text("Download")'):
-                    loc = page.locator(opt).first
-                    if loc.count() > 0:
-                        loc.click()
-                        break
-            dl = dl_info.value
-            dest = common.DOWNLOAD_DIR / (dl.suggested_filename or "printables_download")
-            dl.save_as(str(dest))
-            saved.append(dest)
-        except Exception as e:
-            raise RuntimeError(
-                f"Download failed ({type(e).__name__}: {str(e)[:160]}). The page layout "
-                "may have changed, or login is required -- try --headed."
-            ) from e
-        finally:
-            browser.close()
-    if not saved:
-        raise RuntimeError("No file was downloaded from Printables.")
+    for f in wanted:
+        link = _download_link(f["id"], f["fileType"], info["id"])
+        saved.append(_download(link, f["name"]))
     return saved
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Printables automated login + download")
+    ap = argparse.ArgumentParser(description="Printables download via GraphQL API")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    lg = sub.add_parser("login", help="log in and persist the session")
-    lg.add_argument("--headed", action="store_true")
-    ft = sub.add_parser("fetch", help="download a model's files")
+    ls = sub.add_parser("files", help="list a model's files")
+    ls.add_argument("url")
+    ft = sub.add_parser("fetch", help="download a model's STL files")
     ft.add_argument("url")
-    ft.add_argument("--headed", action="store_true")
+    ft.add_argument("--all", action="store_true", help="include non-STL files too")
     ft.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
     try:
-        if args.cmd == "login":
-            path = login(headed=args.headed)
-            print(f"session saved: {path}")
+        if args.cmd == "files":
+            info = list_files(args.url)
+            print(f"{info['name']} (id {info['id']})")
+            for f in info["files"]:
+                kb = f"{f['size']/1024:.0f} KB" if f.get("size") else "?"
+                print(f"  [{f['fileType']}] {f['name']} ({kb})")
         else:
-            files = fetch(args.url, headed=args.headed)
-            if getattr(args, "json", False):
+            kinds = tuple(FILE_KINDS) if args.all else ("stls",)
+            files = fetch(args.url, kinds=kinds)
+            if args.json:
                 print(json.dumps({"files": [str(f) for f in files]}, indent=2))
             else:
                 for f in files:

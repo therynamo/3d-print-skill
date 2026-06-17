@@ -2,6 +2,3 @@ trimesh>=4.0
 lxml>=5.0
 numpy>=1.26
 requests>=2.31
-# Printables login/download (no public API): drives a real Chromium session.
-# After install run: playwright install chromium
-playwright>=1.40

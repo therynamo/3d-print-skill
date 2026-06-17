@@ -60,16 +60,16 @@ def _extract_zip(zip_path: Path) -> list[Path]:
     return found
 
 
-def _fetch_printables(url: str, headed: bool) -> Path:
-    """Log in and download a Printables model via the browser-driven fetcher."""
+def _fetch_printables(url: str) -> Path:
+    """Download a Printables model via its GraphQL API (no browser, no login)."""
     import printables
-    files = printables.fetch(url, headed=headed)
+    files = printables.fetch(url)
     # Prefer a zip (multi-part bundle); otherwise the largest file.
     zips = [f for f in files if f.suffix.lower() == ".zip"]
     return zips[0] if zips else max(files, key=lambda f: f.stat().st_size)
 
 
-def ingest(source: str, headed: bool = False) -> dict:
+def ingest(source: str) -> dict:
     source_type = "url" if _is_url(source) else "file"
     candidates: list[Path] = []
 
@@ -77,7 +77,7 @@ def ingest(source: str, headed: bool = False) -> dict:
         host = urllib.parse.urlparse(source).netloc.lower()
         path_ext = Path(urllib.parse.urlparse(source).path).suffix.lower()
         if "printables.com" in host and path_ext not in MODEL_EXTS and path_ext != ".zip":
-            local = _fetch_printables(source, headed)
+            local = _fetch_printables(source)
         else:
             local = _download(source)
     else:
@@ -109,12 +109,10 @@ def ingest(source: str, headed: bool = False) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Normalize a printable input")
     ap.add_argument("source", help="local path or http(s) URL")
-    ap.add_argument("--headed", action="store_true",
-                    help="for Printables URLs: open a visible browser (manual login)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     try:
-        result = ingest(args.source, headed=args.headed)
+        result = ingest(args.source)
     except Exception as e:
         print(f"ingest error: {e}", file=sys.stderr)
         return 1
