@@ -83,6 +83,33 @@ Show the returned preview, sending the file(s) named in `deliver_to_user:` (the 
 orbits in macOS Preview; see step 4 and `$PRINT3D_PREVIEW_FORMAT`). On approval feed
 `stl_path` into prepare → slice → the print flow above.
 
+## Photo-to-3D (replicate a real object from photos + measurements)
+When the user wants a print of a *real object* they photograph, recover the **shape**
+from their photos (you read them directly) and get **scale/fit** from measurements
+they take — pixels alone are never reliable. Then author parametric OpenSCAD
+dimensioned to those measurements, exactly like Text-to-3D. Steps:
+
+1. **Intake.** Run `python scripts/from_photo.py intake` to print the capture +
+   measurement checklist, then walk the user through it: orthogonal photos
+   (front/side/top + a 3/4 shot), a known-size reference object in frame, even
+   lighting; and real measurements — overall L×W×H plus every fit-critical feature,
+   noting what each mates with (drives tolerance). Best for functional/geometric
+   parts; organic shapes want photogrammetry/AI tools this skill doesn't run — say so.
+2. **Build.** Author the OpenSCAD (one named variable per measured dimension, apply
+   FDM tolerances), then:
+   ```
+   python scripts/from_photo.py build --name <slug> --code '<openscad>' \
+       --refs front.jpg,side.jpg --measure overall_h=24 --measure shaft_d=6.2
+   ```
+   It compiles to STL/PNG, bundles the reference photos + a measurement spec, and
+   lists them in `deliver_to_user:`.
+3. **Validate.** Send the reference photo(s) **next to** the render so the user can
+   confirm shape and that the printed dimensions match what they measured. Iterate by
+   editing the OpenSCAD variables — not a remodel. On approval, feed `stl_path` into
+   prepare → slice → the print flow.
+
+Full protocol, tolerances, and FDM limits: `references/photo-to-model.md`.
+
 ## Printables downloads
 Printables has no documented API, but the site is driven by a public GraphQL
 endpoint (`api.printables.com`) reachable without auth or a Cloudflare challenge for
@@ -122,5 +149,6 @@ bed max 60 °C → PETG is marginal, needs glue + brim).
 
 ## Progressive disclosure
 - `references/adjustment-rules.md` — full slicing rule definitions + geometry math.
+- `references/photo-to-model.md` — photo→model capture/measurement protocol + FDM tolerances.
 - `PLAN.md` / `PROGRESS.md` — build plan and live checkpoint state.
 - Profiles in `profiles/` are self-contained PrusaSlicer INIs; edit to retune defaults.
