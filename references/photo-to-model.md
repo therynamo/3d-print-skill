@@ -11,6 +11,24 @@ This skill prints on an FDM machine and authors geometry as parametric OpenSCAD
 dimension variables, not a photogrammetry mesh. That keeps the model editable,
 watertight, and trivially re-scaled when a measurement is corrected.
 
+## Step 0 — analyze the supplied photos (don't skip this)
+`from_photo.py analyze --refs ... --task fit|replica|lithophane` is the make-or-break
+step. It separates two concerns:
+
+- **What a tool can know without seeing content** (it prints these): per-image
+  resolution/megapixels, EXIF orientation, a focus/blur score (Laplacian variance —
+  relative across the set; soft frames can't be trusted for reading scales or fine
+  features), and brightness (dark / over-exposed flags). Note: phone uploads often
+  have EXIF camera/focal data stripped, so shot distance/angle can't be inferred —
+  judge view and on-axis-ness visually.
+- **What only vision can decide** (you fill these): which image satisfies each
+  requirement below, and which are MISSING.
+
+Produce a short report back to the user: *what they gave you* (map images →
+requirements), *what's still needed*, and *the exact method to capture each gap*
+(the tool prints the method library). Then ask only for the gaps. Resist the urge to
+invent geometry to cover a missing capture — see the hard cases below.
+
 ## What this flow is good at / not good at
 - **Good:** functional parts with describable geometry — brackets, mounts, clips,
   spacers, enclosures, replacement knobs/feet, adapters, organizers. Anything you
@@ -20,6 +38,20 @@ watertight, and trivially re-scaled when a measurement is corrected.
   offer the parametric approximation instead.
 - **Lithophanes** (photo → relief plaque) are a separate, well-trodden path; mention
   it only if the user actually wants a picture-in-relief, not a physical replica.
+
+## Hard cases (where angled photos are never enough)
+- **Irregular / curved opening outline** (e.g. a cover for a non-rectangular recess):
+  perspective warps the curve and there's no scale plane. Fix: a **flat paper trace**
+  of the opening, photographed straight-down with a ruler beside it. This is the
+  single biggest unlock — it converts a 3D curve into a scaled 2D shape.
+- **Press-fit / snap rim**: the fit lives in ~0.2 mm of rim cross-section that no
+  top-down photo shows. Fix: a **putty/clay/foil impression** of a rim section, cut
+  and photographed with a ruler — or a level side shot of an exposed edge.
+- **Deep recess depth**: a ruler stood vertically in the opening, shot dead-level
+  from the side.
+If the user can't supply these, say so plainly and offer a deliberately loose design
+(e.g. a rim-resting lid with compliant friction tabs) rather than a precise fit that
+will almost certainly be wrong.
 
 ## Capture protocol (what to ask the user to photograph)
 Distilled from the reference-scale / multi-view guidance below. Ask for:

@@ -89,12 +89,20 @@ from their photos (you read them directly) and get **scale/fit** from measuremen
 they take — pixels alone are never reliable. Then author parametric OpenSCAD
 dimensioned to those measurements, exactly like Text-to-3D. Steps:
 
-1. **Intake.** Run `python scripts/from_photo.py intake` to print the capture +
-   measurement checklist, then walk the user through it: orthogonal photos
-   (front/side/top + a 3/4 shot), a known-size reference object in frame, even
-   lighting; and real measurements — overall L×W×H plus every fit-critical feature,
-   noting what each mates with (drives tolerance). Best for functional/geometric
-   parts; organic shapes want photogrammetry/AI tools this skill doesn't run — say so.
+1. **Analyze first (the make-or-break step).** Before modeling anything, diagnose
+   what the user's photos actually provide:
+   ```
+   python scripts/from_photo.py analyze --refs a.jpg,b.jpg --task fit|replica|lithophane
+   ```
+   It reports per-image facts (resolution, orientation, a focus/blur score, brightness)
+   and the task's full requirement list + the capture method for each. **You** then map
+   each requirement to a specific image (or mark it MISSING) and ask the user *only*
+   for the gaps, citing the prescribed method. Don't guess geometry to paper over a
+   missing capture — an irregular outline or a press-fit rim profile cannot be
+   recovered from angled photos; request a flat paper trace / putty cross-section
+   instead. Use `from_photo.py intake` for the plain capture+measurement checklist.
+   Best for functional/geometric parts; organic shapes want photogrammetry/AI tools
+   this skill doesn't run — say so.
 2. **Build.** Author the OpenSCAD (one named variable per measured dimension, apply
    FDM tolerances), then:
    ```
